@@ -1,0 +1,10 @@
+{
+  "name": "Sensation",
+  "short_name": "Sensation",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f3ec",
+  "theme_color": "#17243a",
+  "description": "Application privée de gestion Sensation",
+  "icons": []
+}

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17243a">
+  <meta name="description" content="Sensation — application de gestion">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>Sensation</title>
+  <style>
+    :root{--navy:#17243a;--wine:#7b263e;--gold:#c49a55;--cream:#f7f3ec;--paper:#fffdfa;--ink:#252525;--muted:#777}
+    *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+    header{background:var(--navy);color:white;padding:22px 18px 18px;position:sticky;top:0;z-index:2}
+    header .brand{font-family:Georgia,serif;font-size:30px;letter-spacing:.4px}header small{display:block;color:#e8d8bd;margin-top:4px}
+    main{max-width:850px;margin:auto;padding:20px 16px 50px}.panel{background:var(--paper);border:1px solid #e9e1d5;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 4px 18px #17243a0b}
+    h1{font-size:23px;margin:0 0 8px}h2{font-size:18px;margin:0 0 14px;color:var(--navy)}
+    p{line-height:1.5}.muted{color:var(--muted);font-size:14px}
+    label{display:block;font-size:14px;font-weight:600;margin:14px 0 6px}input{width:100%;padding:13px 12px;border:1px solid #d8d1c7;border-radius:10px;font:inherit;background:white}
+    button{border:0;border-radius:11px;padding:13px 16px;background:var(--wine);color:white;font:600 15px system-ui;cursor:pointer}
+    button.secondary{background:#eee8df;color:var(--navy)}button:disabled{opacity:.55}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.hidden{display:none!important}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .stat{padding:16px;border-radius:14px;background:#f4eee4}.stat b{display:block;font-size:25px;color:var(--navy)}
+    .status{padding:11px 13px;border-radius:10px;background:#f4eee4;color:var(--navy);font-size:14px;white-space:pre-wrap}
+    nav{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}nav button{background:#e8e1d7;color:var(--navy);padding:10px 13px}nav button.active{background:var(--navy);color:white}
+    footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+    @media(min-width:620px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<header><div class="brand">Sensation</div><small>Gestion simple, claire et partagée</small></header>
+<main>
+  <section id="login" class="panel">
+    <h1>Bienvenue</h1>
+    <p class="muted">Connecte-toi pour accéder à l'espace Sensation.</p>
+    <label for="email">Adresse e-mail</label><input id="email" type="email" autocomplete="username" placeholder="nom@exemple.com">
+    <label for="password">Mot de passe</label><input id="password" type="password" autocomplete="current-password" placeholder="Ton mot de passe">
+    <div class="actions"><button id="loginBtn">Se connecter</button></div>
+    <p class="muted">L'accès est réservé aux utilisateurs autorisés par l'administrateur.</p>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="panel">
+      <h1>Tableau de bord</h1>
+      <p id="who" class="muted"></p>
+      <div class="grid">
+        <div class="stat"><span class="muted">Clients</span><b id="clientsCount">—</b></div>
+        <div class="stat"><span class="muted">Commandes</span><b id="ordersCount">—</b></div>
+        <div class="stat"><span class="muted">Dépenses</span><b id="expensesCount">—</b></div>
+        <div class="stat"><span class="muted">Produits</span><b id="productsCount">—</b></div>
+      </div>
+    </div>
+    <nav>
+      <button class="active" data-page="home">Accueil</button>
+      <button data-page="orders">Commandes</button>
+      <button data-page="clients">Clients</button>
+      <button data-page="stock">Stock</button>
+      <button data-page="expenses">Dépenses</button>
+    </nav>
+    <div class="panel" id="pagePanel">
+      <h2>Bienvenue dans Sensation</h2>
+      <p>La connexion à la base de données est établie. Nous allons maintenant construire les écrans de gestion et leurs formulaires.</p>
+      <div class="status" id="connectionStatus">Vérification de la connexion…</div>
+      <div class="actions"><button class="secondary" id="refreshBtn">Actualiser les données</button><button id="logoutBtn">Se déconnecter</button></div>
+    </div>
+  </section>
+  <div id="message" class="status hidden" role="status"></div>
+</main>
+<footer>Sensation · Application privée</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(() => {
+  // Configuration du projet Sensation. La clé publishable est conçue pour être utilisée côté navigateur.
+  const SUPABASE_URL = "https://dpukpybgdlrsxkdccwom.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_kWWGTDBV-69kGDRfT-Tg1w_5y3NRo2A";
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  const $ = id => document.getElementById(id);
+  const showMessage = (text, error=false) => { $("message").textContent=text; $("message").classList.remove("hidden"); $("message").style.background=error?"#f8e7e7":"#e8f3eb"; $("message").style.color=error?"#8b1e2d":"#205b37"; };
+  async function countTable(table, target) {
+    const { count, error } = await db.from(table).select("*", {count:"exact", head:true});
+    if (error) { $(target).textContent="—"; return error.message; }
+    $(target).textContent = count ?? 0; return null;
+  }
+  async function loadApp(user) {
+    $("login").classList.add("hidden"); $("app").classList.remove("hidden");
+    $("who").textContent = user.email || "Utilisateur connecté";
+    const results = await Promise.all([
+      countTable("clients","clientsCount"), countTable("orders","ordersCount"),
+      countTable("expenses","expensesCount"), countTable("products","productsCount")
+    ]);
+    const issues = results.filter(Boolean);
+    $("connectionStatus").textContent = issues.length
+      ? "Connexion active. Certains compteurs ne sont pas encore accessibles :\n"+issues.join("\n")
+      : "Connexion active · Les données sont chargées depuis Supabase.";
+  }
+  $("loginBtn").addEventListener("click", async () => {
+    const email=$("email").value.trim(), password=$("password").value;
+    if(!email || !password) return showMessage("Saisis ton adresse e-mail et ton mot de passe.",true);
+    $("loginBtn").disabled=true; $("loginBtn").textContent="Connexion…";
+    const {data,error}=await db.auth.signInWithPassword({email,password});
+    $("loginBtn").disabled=false; $("loginBtn").textContent="Se connecter";
+    if(error) return showMessage(error.message,true);
+    showMessage("Connexion réussie."); await loadApp(data.user);
+  });
+  $("logoutBtn").addEventListener("click", async()=>{await db.auth.signOut();$("app").classList.add("hidden");$("login").classList.remove("hidden");showMessage("Tu es déconnecté.");});
+  $("refreshBtn").addEventListener("click", async()=>{const {data}=await db.auth.getUser();if(data.user) await loadApp(data.user);});
+  document.querySelectorAll("nav button").forEach(btn=>btn.addEventListener("click",()=>{
+    document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b===btn));
+    const names={home:["Tableau de bord","Bienvenue dans Sensation"],orders:["Commandes","Les commandes seront affichées ici."],clients:["Clients","Le fichier clients sera affiché ici."],stock:["Stock","Le suivi des stocks sera affiché ici."],expenses:["Dépenses","Les dépenses seront affichées ici."]};
+    const [title,body]=names[btn.dataset.page];$("pagePanel").querySelector("h2").textContent=title;$("pagePanel").querySelector("p").textContent=body;
+  }));
+  db.auth.getSession().then(({data})=>{if(data.session) loadApp(data.session.user);});
+})();
+</script>
+</body>
+</html>
